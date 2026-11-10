@@ -1,0 +1,23 @@
+{
+  "generationParameters": {
+    "generationDate": "Tue Nov 10 2026 11:43:36 GMT+0300 (Türkiye Standard Time)",
+    "generatorPlatform": "Visual Studio Code",
+    "serviceType": "None",
+    "metadataFilename": "",
+    "serviceUrl": "N/A",
+    "appName": "zmatcreate",
+    "appTitle": "App Title",
+    "appDescription": "An SAP Fiori application.",
+    "appNamespace": "com.alihaydarsayar",
+    "ui5Theme": "sap_horizon",
+    "ui5Version": "1.154.0",
+    "enableEslint": true,
+    "enableTypeScript": false,
+    "showMockDataInfo": false,
+    "generatorVersion": "1.27.0",
+    "template": "Basic",
+    "generatorName": "SAP Fiori Application Generator",
+    "entityRelatedConfig": [],
+    "launchText": "To launch the generated application, run the following from the generated application root folder:\n\n```\n    npm start\n```"
+  }
+}
