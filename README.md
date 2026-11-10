@@ -72,9 +72,9 @@ npx http-server -p 8081
 
 ## 🌍 Dil desteği
 
-Dil, tarayıcı diline göre seçilir: İngilizce tarayıcıda İngilizce, diğerlerinde **Türkçe** (varsayılan).
+Uygulama **her zaman Türkçe açılır** (`webapp/index.html` içinde `data-sap-ui-language="tr"`). İngilizce için adrese `?sap-language=EN` ekleyin, Türkçe için `?sap-language=TR` yeterlidir.
 Metinler [webapp/i18n/](webapp/i18n) altındadır: `i18n.properties` (varsayılan), `i18n_tr.properties`, `i18n_en.properties`.
-Excel şablon başlıkları da seçili dile göre gelir. Dili zorlamak için adrese `?sap-language=EN` ekleyin.
+Excel şablon başlıkları da seçili dile göre gelir.
 
 ## 🧱 Yapı
 
