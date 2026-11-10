@@ -50,3 +50,35 @@
     overflow-wrap: normal;
     hyphens: none;
 }
+
+/* Mobil uyum */
+.zmcPage .zmcRow {
+    gap: 0.5rem;
+}
+
+.zmcPage .zmcRow > .sapMBtn,
+.zmcPage .zmcRow > .sapUiUfdFileUploader {
+    margin-right: 0;
+}
+
+@media (max-width: 599px) {
+    .zmcPage .sapMPageHeader .sapMTitle {
+        font-size: 1rem;
+    }
+
+    /* Butonlar dar ekranda tam genişlik */
+    .zmcPage .zmcRow > .sapMBtn,
+    .zmcPage .zmcRow > .sapUiUfdFileUploader {
+        flex: 1 1 100%;
+    }
+
+    .zmcPage .zmcRow > .sapUiUfdFileUploader .sapMBtn,
+    .zmcPage .zmcRow > .sapMBtn .sapMBtnInner {
+        width: 100%;
+    }
+
+    /* Alttaki Malzeme Yarat butonu rahat dokunulsun */
+    .zmcPage .sapMPageFooter .sapMBtn {
+        min-width: 10rem;
+    }
+}

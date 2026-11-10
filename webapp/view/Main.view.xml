@@ -7,14 +7,18 @@
             <MessageStrip id="messageStrip" text="{view>/message/text}" type="{view>/message/type}"
                 visible="{view>/message/visible}" showIcon="true" showCloseButton="true"
                 class="sapUiSmallMarginBottom"/>
-            <HBox alignItems="Center" wrap="Wrap">
+            <HBox alignItems="Center" wrap="Wrap" class="zmcRow">
                 <Input id="fileName" value="{view>/fileName}" placeholder="{i18n>filePlaceholder}"
-                    editable="false" width="18rem" class="sapUiTinyMarginEnd"/>
+                    editable="false" class="sapUiTinyMarginEnd">
+                    <layoutData>
+                        <FlexItemData growFactor="1" baseSize="12rem" maxWidth="20rem"/>
+                    </layoutData>
+                </Input>
                 <u:FileUploader id="uploader" buttonOnly="true" buttonText="{i18n>selectExcel}"
                     icon="sap-icon://upload" iconFirst="true" fileType="xlsx" sameFilenameAllowed="true"
                     typeMissmatch=".onTypeMismatch" change=".onFileChange"/>
             </HBox>
-            <HBox class="sapUiTinyMarginTop" wrap="Wrap">
+            <HBox class="sapUiTinyMarginTop zmcRow" wrap="Wrap">
                 <Button text="{i18n>downloadTemplate}" icon="sap-icon://download" press=".onDownloadTemplate"
                     class="sapUiTinyMarginEnd"/>
                 <Button text="{i18n>downloadTable}" icon="sap-icon://excel-attachment" type="Emphasized"
@@ -45,7 +49,7 @@
                         </SegmentedButton>
                         <Button icon="sap-icon://multiselect-all" text="{i18n>selectFailed}" type="Transparent"
                             visible="{= ${view>/summary/errorCount} > 0}" press=".onSelectFailed"/>
-                        <SearchField width="14rem" placeholder="{i18n>search}" liveChange=".onSearch"
+                        <SearchField width="12rem" placeholder="{i18n>search}" liveChange=".onSearch"
                             visible="{view>/hasRows}"/>
                     </OverflowToolbar>
                 </headerToolbar>
@@ -53,13 +57,13 @@
                     <Column width="3rem" hAlign="End"><Text text="#"/></Column>
                     <Column width="7rem"><Text text="{i18n>colMtart}"/></Column>
                     <Column><Text text="{i18n>colMaktx}"/></Column>
-                    <Column><Text text="{i18n>colMeins}"/></Column>
-                    <Column><Text text="{i18n>colSector}"/></Column>
-                    <Column><Text text="{i18n>colDivision}"/></Column>
-                    <Column><Text text="{i18n>colPlant}"/></Column>
-                    <Column><Text text="{i18n>colStorage}"/></Column>
+                    <Column minScreenWidth="Tablet" demandPopin="true"><Text text="{i18n>colMeins}"/></Column>
+                    <Column minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colSector}"/></Column>
+                    <Column minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colDivision}"/></Column>
+                    <Column minScreenWidth="Tablet" demandPopin="true"><Text text="{i18n>colPlant}"/></Column>
+                    <Column minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colStorage}"/></Column>
                     <Column width="9rem"><Text text="{i18n>statusCode}"/></Column>
-                    <Column width="22%"><Text text="{i18n>statusMessage}"/></Column>
+                    <Column minScreenWidth="Tablet" demandPopin="true" width="22%"><Text text="{i18n>statusMessage}"/></Column>
                 </columns>
                 <items>
                     <ColumnListItem highlight="{view>Highlight}">
