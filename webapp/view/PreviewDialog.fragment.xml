@@ -1,0 +1,32 @@
+<core:FragmentDefinition
+    xmlns="sap.m"
+    xmlns:core="sap.ui.core">
+    <Dialog id="previewDialog" title="{preview>/title}" contentWidth="70rem"
+        stretch="{device>/system/phone}" draggable="true" resizable="true" class="zmcPreview"
+        afterOpen=".onPreviewAfterOpen" afterClose=".onPreviewAfterClose">
+        <content>
+            <VBox class="sapUiSmallMargin">
+                <HBox alignItems="Center" justifyContent="SpaceBetween" wrap="Wrap" class="zmcRow">
+                    <Text text="{preview>/info}"/>
+                    <HBox alignItems="Center" visible="{= ${preview>/sheets}.length > 1}">
+                        <Label text="{i18n>previewSheet}" class="sapUiTinyMarginEnd"/>
+                        <Select selectedKey="{preview>/selected}" items="{preview>/sheets}"
+                            change=".onPreviewSheetChange" width="12rem">
+                            <core:Item key="{preview>key}" text="{preview>name}"/>
+                        </Select>
+                    </HBox>
+                </HBox>
+                <Text text="{i18n>gridHint}" class="sapUiTinyMarginTop zmcHint"/>
+                <core:HTML preferDOM="true" class="sapUiSmallMarginTop"
+                    content="&lt;div class=&quot;zmcSheetHost&quot;&gt;&lt;/div&gt;"/>
+            </VBox>
+        </content>
+        <buttons>
+            <Button text="{i18n>previewLoad}" type="Emphasized" icon="sap-icon://upload"
+                enabled="{preview>/canLoad}" visible="{= ${preview>/mode} === 'upload'}" press=".onPreviewLoad"/>
+            <Button text="{i18n>gridSave}" type="Emphasized" icon="sap-icon://save"
+                visible="{= ${preview>/mode} === 'view'}" press=".onGridSave"/>
+            <Button text="{i18n>previewCancel}" press=".onPreviewCancel"/>
+        </buttons>
+    </Dialog>
+</core:FragmentDefinition>

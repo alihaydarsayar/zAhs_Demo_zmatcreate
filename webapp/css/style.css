@@ -82,3 +82,23 @@
         min-width: 10rem;
     }
 }
+
+/* Excel benzeri düzenlenebilir ızgara (Jspreadsheet) */
+.zmcPreview .zmcSheetHost {
+    min-height: 12rem;
+}
+
+.zmcPreview .zmcHint {
+    color: #556b82;
+    font-size: 0.8125rem;
+}
+
+.zmcPreview .jexcel > tbody > tr > td.readonly {
+    background-color: #f5f5f5;
+    color: #556b82;
+}
+
+/* Jspreadsheet bağlam menüsü UI5 diyaloglarının üstünde kalsın */
+.jcontextmenu {
+    z-index: 100000;
+}

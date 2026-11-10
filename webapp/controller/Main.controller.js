@@ -7,10 +7,12 @@ sap.ui.define([
     "sap/ui/export/Spreadsheet",
     "sap/base/Log",
     "sap/base/security/encodeXML",
+    "sap/ui/core/Fragment",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
-    "com/alihaydarsayar/zmatcreate/model/ExcelReader"
-], (Controller, JSONModel, MessageToast, MessageBox, BusyIndicator, Spreadsheet, Log, encodeXML, Filter, FilterOperator, ExcelReader) => {
+    "com/alihaydarsayar/zmatcreate/model/ExcelReader",
+    "com/alihaydarsayar/zmatcreate/model/SpreadsheetLoader"
+], (Controller, JSONModel, MessageToast, MessageBox, BusyIndicator, Spreadsheet, Log, encodeXML, Fragment, Filter, FilterOperator, ExcelReader, SpreadsheetLoader) => {
     "use strict";
 
     // Model alanı <-> i18n anahtarı (Excel başlıkları kullanıcının diline göre gelir)
@@ -49,6 +51,14 @@ sap.ui.define([
         return String(s).toLocaleLowerCase("tr").replace(/[^a-z0-9ğüşıöç]/g, "");
     }
 
+    // Izgara sütun genişlikleri (px): açıklama, durum kodu ve durum mesajı daha geniş
+    const GRID_WIDTHS = [110, 190, 130, 90, 90, 110, 100, 120, 280];
+
+    /** Tamamen boş satırları ayıklar. */
+    function withoutBlankRows(aRows) {
+        return aRows.filter((aRow) => aRow.some((v) => String(v === undefined || v === null ? "" : v).trim() !== ""));
+    }
+
     return Controller.extend("com.alihaydarsayar.zmatcreate.controller.Main", {
 
         onInit() {
@@ -62,6 +72,12 @@ sap.ui.define([
                 summary: { successCount: 0, errorCount: 0, incompleteCount: 0, success: "", error: "", incomplete: "" }
             });
             this.getView().setModel(this._oModel, "view");
+            this._oPreview = new JSONModel({
+                title: "", mode: "upload", info: "", sheets: [], selected: "0", canLoad: false
+            });
+            this._oPending = null;
+            this._oGrid = null;
+            this._iGridSheet = 0;
         },
 
         _t(sKey, aArgs) {
@@ -168,21 +184,246 @@ sap.ui.define([
                 return;
             }
             const oReader = new FileReader();
-            oReader.onload = (e) => this._applyFile(oFile.name, e.target.result);
+            oReader.onload = (e) => this._openPreview(oFile.name, e.target.result);
             oReader.onerror = () => this._showMessage("Error", this._t("msgBadFile"), true);
             oReader.readAsArrayBuffer(oFile);
         },
 
-        _applyFile(sName, oBuffer) {
-            let aAoa;
+        /* ---------------- Excel önizleme / düzenleme (Jspreadsheet) ---------------- */
+
+        _openPreview(sName, oBuffer) {
+            let aSheets;
             try {
-                aAoa = ExcelReader.read(oBuffer);
+                aSheets = ExcelReader.readSheets(oBuffer);
             } catch (oError) {
                 Log.error("Excel okunamadı", oError && oError.stack);
                 MessageBox.error(this._t("msgBadFile"), { details: String(oError && oError.message) });
                 return;
             }
+            this._oPending = { name: sName, sheets: aSheets };
+            this._oPreview.setProperty("/mode", "upload");
+            this._oPreview.setProperty("/title", this._t("previewTitle"));
+            this._showGridDialog();
+        },
 
+        /** Tablodaki güncel veriyi (durum sütunlarıyla) Excel benzeri düzenlenebilir ızgarada açar. */
+        onShowGrid() {
+            const aData = this._oModel.getProperty("/rows");
+            if (!aData.length) {
+                MessageToast.show(this._t("msgNoData"));
+                return;
+            }
+            const aHead = COLUMNS.map((c) => this._t(c.i18n)).concat([this._t("statusCode"), this._t("statusMessage")]);
+            const aRows = [aHead].concat(aData.map((r) =>
+                COLUMNS.map((c) => r[c.key]).concat([r.StatusCode, r.StatusMessage])));
+            this._oPending = {
+                name: this._oModel.getProperty("/fileName") || this._t("sheetName"),
+                sheets: [{ name: this._t("sheetName"), rows: aRows }]
+            };
+            this._oPreview.setProperty("/mode", "view");
+            this._oPreview.setProperty("/title", this._t("gridTitle"));
+            this._showGridDialog();
+        },
+
+        _showGridDialog() {
+            this._oPreview.setProperty("/sheets", this._oPending.sheets.map((o, i) => ({ key: String(i), name: o.name })));
+            this._oPreview.setProperty("/selected", "0");
+            this._iGridSheet = 0;
+            this._updatePreview();
+
+            if (!this._pDialog) {
+                this._pDialog = Fragment.load({
+                    id: this.getView().getId(),
+                    name: "com.alihaydarsayar.zmatcreate.view.PreviewDialog",
+                    controller: this
+                }).then((oDialog) => {
+                    this.getView().addDependent(oDialog);
+                    oDialog.setModel(this._oPreview, "preview");
+                    // Hücre düzenlerken Esc yalnızca düzenlemeyi iptal etsin, pencereyi kapatmasın
+                    oDialog.setEscapeHandler((oPromise) => {
+                        if (this._oGrid && this._oGrid.edition) {
+                            oPromise.reject();
+                        } else {
+                            oPromise.resolve();
+                        }
+                    });
+                    return oDialog;
+                });
+            }
+            this._pDialog.then((oDialog) => oDialog.open());
+        },
+
+        /** Bilgi satırını ve Yükle düğmesinin durumunu günceller. */
+        _updatePreview() {
+            const oSheet = this._oPending.sheets[parseInt(this._oPreview.getProperty("/selected"), 10)];
+            const iRows = oSheet.rows.length;
+            this._oPreview.setProperty("/info", this._oPending.name + " · " + this._t("rowCount", [iRows]));
+            this._oPreview.setProperty("/canLoad", iRows > 0);
+        },
+
+        onPreviewAfterOpen() {
+            this._renderGrid();
+        },
+
+        onPreviewAfterClose() {
+            this._destroyGrid();
+            this._oPending = null;
+        },
+
+        /** Seçili sayfa için ızgarayı (yeniden) oluşturur. */
+        _renderGrid() {
+            const oSheet = this._oPending.sheets[parseInt(this._oPreview.getProperty("/selected"), 10)];
+            const bView = this._oPreview.getProperty("/mode") === "view";
+            Promise.all([this._pDialog, SpreadsheetLoader.load()]).then(([oDialog, jspreadsheet]) => {
+                const oHost = oDialog.getDomRef() && oDialog.getDomRef().querySelector(".zmcSheetHost");
+                if (!oHost || !this._oPending) {
+                    return;
+                }
+                this._destroyGrid();
+                const iCols = Math.max(COLUMNS.length, ...oSheet.rows.map((r) => r.length));
+                const aData = oSheet.rows.map((aRow) =>
+                    Array.from({ length: iCols }, (_, i) => (aRow[i] === undefined ? "" : aRow[i])));
+                const oStyle = {};
+                for (let i = 0; i < iCols; i++) {
+                    oStyle[jspreadsheet.getColumnNameFromId([i, 0])] = "font-weight: bold; background-color: #f7f9fc;";
+                }
+                const oT = (k) => this._t(k);
+                this._oGrid = jspreadsheet(oHost, {
+                    data: aData,
+                    // Görünüm modunda Durum sütunları salt okunur
+                    columns: Array.from({ length: iCols }, (_, i) => ({
+                        type: "text", width: GRID_WIDTHS[i] || 120, readOnly: bView && i >= COLUMNS.length
+                    })),
+                    minDimensions: [iCols, Math.max(aData.length + 5, 15)],
+                    tableOverflow: true,
+                    tableWidth: Math.max(280, oHost.clientWidth) + "px",
+                    tableHeight: Math.round(Math.min(window.innerHeight * 0.55, 460)) + "px",
+                    style: oStyle,
+                    columnSorting: false,
+                    allowComments: false,
+                    allowRenameColumn: false,
+                    allowInsertColumn: !bView,
+                    allowDeleteColumn: !bView,
+                    allowManualInsertColumn: !bView,
+                    about: false,
+                    text: {
+                        insertANewRowBefore: oT("gridRowBefore"),
+                        insertANewRowAfter: oT("gridRowAfter"),
+                        deleteSelectedRows: oT("gridDelRows"),
+                        insertANewColumnBefore: oT("gridColBefore"),
+                        insertANewColumnAfter: oT("gridColAfter"),
+                        deleteSelectedColumns: oT("gridDelCols"),
+                        copy: oT("gridCopy"),
+                        paste: oT("gridPaste"),
+                        saveAs: oT("gridSaveCsv"),
+                        areYouSureToDeleteTheSelectedRows: oT("gridConfirmDelRows"),
+                        areYouSureToDeleteTheSelectedColumns: oT("gridConfirmDelCols")
+                    }
+                });
+                this._iGridSheet = parseInt(this._oPreview.getProperty("/selected"), 10);
+            }).catch((oError) => {
+                Log.error("Izgara yüklenemedi", oError && oError.stack);
+                this._closePreview();
+                this._showMessage("Error", this._t("msgGridFail"), true);
+            });
+        },
+
+        _destroyGrid() {
+            if (!this._oGrid) {
+                return;
+            }
+            const oHost = this._oGrid.el && this._oGrid.el.parentNode;
+            try {
+                window.jspreadsheet.destroy(this._oGrid.el);
+            } catch (e) {
+                Log.warning("Izgara temizlenemedi", e && e.message);
+            }
+            if (oHost) {
+                oHost.innerHTML = "";
+            }
+            this._oGrid = null;
+        },
+
+        /** Izgaradaki (düzenlenmiş) veriyi ilgili sayfanın satırlarına geri yazar. */
+        _syncGrid() {
+            if (this._oGrid && this._oPending) {
+                this._oPending.sheets[this._iGridSheet].rows = this._oGrid.getData().map((aRow) => aRow.slice());
+            }
+        },
+
+        onPreviewSheetChange() {
+            this._syncGrid();
+            this._updatePreview();
+            this._renderGrid();
+        },
+
+        onPreviewLoad() {
+            this._syncGrid();
+            const oSheet = this._oPending.sheets[parseInt(this._oPreview.getProperty("/selected"), 10)];
+            const sName = this._oPending.name;
+            const aRows = withoutBlankRows(oSheet.rows);
+            this._closePreview();
+            this._applyRows(sName, aRows);
+        },
+
+        /** Görünüm modunda düzenlenen veriyi ana tabloya uygular. */
+        onGridSave() {
+            this._syncGrid();
+            const aGrid = withoutBlankRows(this._oPending.sheets[0].rows).slice(1); // ilk satır başlık
+            const aOld = this._oModel.getProperty("/rows");
+            const aIdx = COLUMNS.map((_, i) => i);
+
+            const aRows = aGrid.map((aRow, i) => {
+                const oRow = Object.assign(toRecord(aRow, aIdx), { No: i + 1 });
+                const oPrev = aOld[i];
+                const bSame = oPrev && COLUMNS.every((c) => oPrev[c.key] === oRow[c.key]);
+                if (bSame) {
+                    // Satır değişmediyse mevcut durumu (başarılı/başarısız) koru
+                    Object.assign(oRow, {
+                        StatusCode: oPrev.StatusCode, StatusMessage: oPrev.StatusMessage,
+                        State: oPrev.State, Highlight: oPrev.Highlight, Icon: oPrev.Icon
+                    });
+                } else {
+                    Object.assign(oRow, { StatusCode: "", StatusMessage: "", State: "None", Highlight: "None", Icon: "" });
+                    const aMissing = this._missingFields(oRow);
+                    if (aMissing.length) {
+                        this._setStatus(oRow, "incomplete", this._t("msgMissing", [aMissing.join(", ")]));
+                    }
+                }
+                return oRow;
+            });
+
+            this._closePreview();
+            this._setRows(aRows);
+            const iIncomplete = aRows.filter((r) => r.Highlight === "Warning").length;
+            if (iIncomplete) {
+                this._showMessage("Warning", this._t("msgGridSavedWarn", [aRows.length, iIncomplete]), true,
+                    aRows.filter((r) => r.Highlight === "Warning").map((r) => "#" + r.No + ": " + r.StatusMessage));
+            } else {
+                this._showMessage("Success", this._t("msgGridSaved", [aRows.length]));
+            }
+        },
+
+        onPreviewCancel() {
+            this._closePreview();
+        },
+
+        _closePreview() {
+            this._pDialog.then((oDialog) => oDialog.close());
+        },
+
+        /* ---------------- Tabloya aktarma ---------------- */
+
+        /** Tablo satırlarını, sayaçları ve seçimi tek yerden günceller. */
+        _setRows(aRows) {
+            this._oModel.setProperty("/rows", aRows);
+            this._oModel.setProperty("/hasRows", aRows.length > 0);
+            this._oModel.setProperty("/count", aRows.length ? this._t("rowCount", [aRows.length]) : "");
+            this._updateSummary();
+            this.byId("table").removeSelections(true);
+        },
+
+        _applyRows(sName, aAoa) {
             // Başlık adına göre eşle; bulunamazsa sütun sırasına düş
             const aHead = (aAoa[0] || []).map(normalize);
             const aIdx = COLUMNS.map((c, i) => {
@@ -210,11 +451,7 @@ sap.ui.define([
             this._oModel.setProperty("/filter", "all");
             this._applyFilters();
             this._oModel.setProperty("/fileName", sName);
-            this._oModel.setProperty("/rows", aRows);
-            this._oModel.setProperty("/hasRows", true);
-            this._oModel.setProperty("/count", this._t("rowCount", [aRows.length]));
-            this._updateSummary();
-            this.byId("table").removeSelections(true);
+            this._setRows(aRows);
 
             if (iIncomplete) {
                 this._showMessage("Warning", this._t("msgLoadedWarn", [aRows.length, iIncomplete]), true,

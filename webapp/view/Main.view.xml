@@ -22,7 +22,9 @@
                 <Button text="{i18n>downloadTemplate}" icon="sap-icon://download" press=".onDownloadTemplate"
                     class="sapUiTinyMarginEnd"/>
                 <Button text="{i18n>downloadTable}" icon="sap-icon://excel-attachment" type="Emphasized"
-                    enabled="{view>/hasRows}" press=".onDownloadTable"/>
+                    enabled="{view>/hasRows}" press=".onDownloadTable" class="sapUiTinyMarginEnd"/>
+                <Button text="{i18n>viewAsExcel}" icon="sap-icon://table-view"
+                    enabled="{view>/hasRows}" press=".onShowGrid"/>
             </HBox>
             <Table id="table" items="{view>/rows}" mode="MultiSelect" growing="true" growingThreshold="200"
                 sticky="ColumnHeaders,HeaderToolbar" noDataText="{i18n>noData}" class="sapUiSmallMarginTop">
