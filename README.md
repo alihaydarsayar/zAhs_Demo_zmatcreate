@@ -33,3 +33,7 @@ An SAP Fiori application.
 1. Active NodeJS LTS (Long Term Support) version and associated supported NPM version.  (See https://nodejs.org)
 
 
+
+## GitHub Pages
+
+SAPUI5 (ui5.sap.com) ve SheetJS CDN uzerinden yuklenir, build gerekmez. Settings > Pages > Deploy from a branch > main / (root) secin. Kok index.html, webapp/index.html adresine yonlendirir. Demo modunda malzeme yaratma simule edilir.

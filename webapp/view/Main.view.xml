@@ -1,6 +1,62 @@
 <mvc:View controllerName="com.alihaydarsayar.zmatcreate.controller.Main"
     xmlns:mvc="sap.ui.core.mvc"
+    xmlns:u="sap.ui.unified"
     xmlns="sap.m">
-    <Page id="page" title="{i18n>title}">
+    <Page id="page" title="{i18n>title}" class="sapUiResponsivePadding--content">
+        <content>
+            <HBox class="zmcTop" alignItems="Center" wrap="Wrap">
+                <Input id="fileName" value="{view>/fileName}" editable="false" width="18rem" class="sapUiTinyMarginEnd"/>
+                <u:FileUploader id="uploader" buttonOnly="true" buttonText="{i18n>selectExcel}"
+                    icon="sap-icon://upload" iconFirst="true" fileType="xlsx,xls" sameFilenameAllowed="true"
+                    change=".onFileChange"/>
+            </HBox>
+            <HBox class="sapUiTinyMarginTop" wrap="Wrap">
+                <Button text="{i18n>downloadTemplate}" press=".onDownloadTemplate" class="sapUiTinyMarginEnd"/>
+                <Button text="{i18n>downloadTable}" type="Emphasized" press=".onDownloadTable"/>
+            </HBox>
+            <Table id="table" items="{view>/rows}" mode="MultiSelect" growing="true" growingThreshold="200"
+                noDataText="{i18n>noData}" class="sapUiSmallMarginTop">
+                <headerToolbar>
+                    <OverflowToolbar>
+                        <Title text="{i18n>loadedRecords}" level="H2"/>
+                        <ToolbarSpacer/>
+                        <Text text="{view>/count}"/>
+                    </OverflowToolbar>
+                </headerToolbar>
+                <columns>
+                    <Column><Text text="{i18n>colMtart}"/></Column>
+                    <Column><Text text="{i18n>colMaktx}"/></Column>
+                    <Column><Text text="{i18n>colMeins}"/></Column>
+                    <Column><Text text="{i18n>colSector}"/></Column>
+                    <Column><Text text="{i18n>colDivision}"/></Column>
+                    <Column><Text text="{i18n>colPlant}"/></Column>
+                    <Column><Text text="{i18n>colStorage}"/></Column>
+                    <Column><Text text="{i18n>statusCode}"/></Column>
+                    <Column><Text text="{i18n>statusMessage}"/></Column>
+                </columns>
+                <items>
+                    <ColumnListItem>
+                        <cells>
+                            <Text text="{view>Mtart}"/>
+                            <Text text="{view>Maktx}"/>
+                            <Text text="{view>Meins}"/>
+                            <Text text="{view>Sector}"/>
+                            <Text text="{view>Division}"/>
+                            <Text text="{view>Plant}"/>
+                            <Text text="{view>Storage}"/>
+                            <ObjectStatus text="{view>StatusCode}" state="{view>State}" icon="{view>Icon}"/>
+                            <Text text="{view>StatusMessage}"/>
+                        </cells>
+                    </ColumnListItem>
+                </items>
+            </Table>
+        </content>
+        <footer>
+            <OverflowToolbar>
+                <Text text="{i18n>msgDemo}" class="sapUiTinyMarginBegin"/>
+                <ToolbarSpacer/>
+                <Button text="{i18n>createMaterial}" type="Accept" icon="sap-icon://paper-plane" press=".onCreate"/>
+            </OverflowToolbar>
+        </footer>
     </Page>
 </mvc:View>
