@@ -4,39 +4,67 @@
     xmlns="sap.m">
     <Page id="page" title="{i18n>title}" class="sapUiResponsivePadding--content">
         <content>
-            <HBox class="zmcTop" alignItems="Center" wrap="Wrap">
-                <Input id="fileName" value="{view>/fileName}" editable="false" width="18rem" class="sapUiTinyMarginEnd"/>
+            <MessageStrip id="messageStrip" text="{view>/message/text}" type="{view>/message/type}"
+                visible="{view>/message/visible}" showIcon="true" showCloseButton="true"
+                class="sapUiSmallMarginBottom"/>
+            <HBox alignItems="Center" wrap="Wrap">
+                <Input id="fileName" value="{view>/fileName}" placeholder="{i18n>filePlaceholder}"
+                    editable="false" width="18rem" class="sapUiTinyMarginEnd"/>
                 <u:FileUploader id="uploader" buttonOnly="true" buttonText="{i18n>selectExcel}"
-                    icon="sap-icon://upload" iconFirst="true" fileType="xlsx,xls" sameFilenameAllowed="true"
-                    change=".onFileChange"/>
+                    icon="sap-icon://upload" iconFirst="true" fileType="xlsx" sameFilenameAllowed="true"
+                    typeMissmatch=".onTypeMismatch" change=".onFileChange"/>
             </HBox>
             <HBox class="sapUiTinyMarginTop" wrap="Wrap">
-                <Button text="{i18n>downloadTemplate}" press=".onDownloadTemplate" class="sapUiTinyMarginEnd"/>
-                <Button text="{i18n>downloadTable}" type="Emphasized" press=".onDownloadTable"/>
+                <Button text="{i18n>downloadTemplate}" icon="sap-icon://download" press=".onDownloadTemplate"
+                    class="sapUiTinyMarginEnd"/>
+                <Button text="{i18n>downloadTable}" icon="sap-icon://excel-attachment" type="Emphasized"
+                    enabled="{view>/hasRows}" press=".onDownloadTable"/>
             </HBox>
             <Table id="table" items="{view>/rows}" mode="MultiSelect" growing="true" growingThreshold="200"
-                noDataText="{i18n>noData}" class="sapUiSmallMarginTop">
+                sticky="ColumnHeaders,HeaderToolbar" noDataText="{i18n>noData}" class="sapUiSmallMarginTop">
                 <headerToolbar>
                     <OverflowToolbar>
                         <Title text="{i18n>loadedRecords}" level="H2"/>
+                        <ObjectNumber number="{view>/count}" emphasized="false" class="sapUiTinyMarginBegin"/>
                         <ToolbarSpacer/>
-                        <Text text="{view>/count}"/>
+                        <GenericTag text="{view>/summary/success}" status="Success" design="StatusIconHidden"
+                            visible="{= ${view>/summary/successCount} > 0}"/>
+                        <GenericTag text="{view>/summary/error}" status="Error" design="StatusIconHidden"
+                            visible="{= ${view>/summary/errorCount} > 0}"/>
+                        <GenericTag text="{view>/summary/incomplete}" status="Warning" design="StatusIconHidden"
+                            visible="{= ${view>/summary/incompleteCount} > 0}"/>
+                        <ToolbarSeparator visible="{view>/hasRows}"/>
+                        <SegmentedButton selectedKey="{view>/filter}" selectionChange=".onFilterChange"
+                            visible="{view>/hasRows}">
+                            <items>
+                                <SegmentedButtonItem key="all" text="{i18n>filterAll}"/>
+                                <SegmentedButtonItem key="Success" icon="sap-icon://accept" tooltip="{i18n>success}"/>
+                                <SegmentedButtonItem key="Error" icon="sap-icon://decline" tooltip="{i18n>failed}"/>
+                                <SegmentedButtonItem key="Warning" icon="sap-icon://alert" tooltip="{i18n>incomplete}"/>
+                            </items>
+                        </SegmentedButton>
+                        <Button icon="sap-icon://multiselect-all" text="{i18n>selectFailed}" type="Transparent"
+                            visible="{= ${view>/summary/errorCount} > 0}" press=".onSelectFailed"/>
+                        <SearchField width="14rem" placeholder="{i18n>search}" liveChange=".onSearch"
+                            visible="{view>/hasRows}"/>
                     </OverflowToolbar>
                 </headerToolbar>
                 <columns>
-                    <Column><Text text="{i18n>colMtart}"/></Column>
-                    <Column><Text text="{i18n>colMaktx}"/></Column>
-                    <Column><Text text="{i18n>colMeins}"/></Column>
-                    <Column><Text text="{i18n>colSector}"/></Column>
-                    <Column><Text text="{i18n>colDivision}"/></Column>
-                    <Column><Text text="{i18n>colPlant}"/></Column>
-                    <Column><Text text="{i18n>colStorage}"/></Column>
-                    <Column><Text text="{i18n>statusCode}"/></Column>
-                    <Column><Text text="{i18n>statusMessage}"/></Column>
+                    <Column width="3rem" hAlign="End"><Text text="#"/></Column>
+                    <Column width="8rem"><Text text="{i18n>colMtart}"/></Column>
+                    <Column minScreenWidth="Tablet" demandPopin="true" width="14rem"><Text text="{i18n>colMaktx}"/></Column>
+                    <Column minScreenWidth="Tablet" demandPopin="true"><Text text="{i18n>colMeins}"/></Column>
+                    <Column minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colSector}"/></Column>
+                    <Column minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colDivision}"/></Column>
+                    <Column minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colPlant}"/></Column>
+                    <Column minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colStorage}"/></Column>
+                    <Column width="10rem"><Text text="{i18n>statusCode}"/></Column>
+                    <Column width="20rem"><Text text="{i18n>statusMessage}"/></Column>
                 </columns>
                 <items>
-                    <ColumnListItem>
+                    <ColumnListItem highlight="{view>Highlight}">
                         <cells>
+                            <Text text="{view>No}"/>
                             <Text text="{view>Mtart}"/>
                             <Text text="{view>Maktx}"/>
                             <Text text="{view>Meins}"/>
@@ -44,7 +72,8 @@
                             <Text text="{view>Division}"/>
                             <Text text="{view>Plant}"/>
                             <Text text="{view>Storage}"/>
-                            <ObjectStatus text="{view>StatusCode}" state="{view>State}" icon="{view>Icon}"/>
+                            <ObjectStatus text="{view>StatusCode}" state="{view>State}" icon="{view>Icon}"
+                                inverted="true"/>
                             <Text text="{view>StatusMessage}"/>
                         </cells>
                     </ColumnListItem>
@@ -55,7 +84,8 @@
             <OverflowToolbar>
                 <Text text="{i18n>msgDemo}" class="sapUiTinyMarginBegin"/>
                 <ToolbarSpacer/>
-                <Button text="{i18n>createMaterial}" type="Accept" icon="sap-icon://paper-plane" press=".onCreate"/>
+                <Button text="{i18n>createMaterial}" type="Accept" icon="sap-icon://paper-plane"
+                    enabled="{view>/hasRows}" press=".onCreate"/>
             </OverflowToolbar>
         </footer>
     </Page>

@@ -6,35 +6,33 @@ sap.ui.define([
     "sap/ui/core/BusyIndicator",
     "sap/ui/export/Spreadsheet",
     "sap/base/Log",
+    "sap/ui/model/Filter",
+    "sap/ui/model/FilterOperator",
     "com/alihaydarsayar/zmatcreate/model/ExcelReader"
-], (Controller, JSONModel, MessageToast, MessageBox, BusyIndicator, Spreadsheet, Log, ExcelReader) => {
+], (Controller, JSONModel, MessageToast, MessageBox, BusyIndicator, Spreadsheet, Log, Filter, FilterOperator, ExcelReader) => {
     "use strict";
 
-    // Excel başlığı <-> model alanı
+    // Model alanı <-> i18n anahtarı (Excel başlıkları kullanıcının diline göre gelir)
     const COLUMNS = [
-        { key: "Mtart", header: "Malzeme Türü" },
-        { key: "Maktx", header: "Malzeme Açıklaması" },
-        { key: "Meins", header: "Temel Ölçü Birim" },
-        { key: "Sector", header: "Sektör" },
-        { key: "Division", header: "Bölüm" },
-        { key: "Plant", header: "Üretim Yeri" },
-        { key: "Storage", header: "Depo Yeri" }
+        { key: "Mtart", i18n: "colMtart" },
+        { key: "Maktx", i18n: "colMaktx" },
+        { key: "Meins", i18n: "colMeins" },
+        { key: "Sector", i18n: "colSector" },
+        { key: "Division", i18n: "colDivision" },
+        { key: "Plant", i18n: "colPlant" },
+        { key: "Storage", i18n: "colStorage" }
     ];
     const REQUIRED = ["Mtart", "Maktx", "Meins", "Plant"];
     // Demo: SAP'de tanımlı kabul edilen malzeme türleri
     const KNOWN_TYPES = ["FERT", "HALB", "HAWA", "VERP", "ZRAW"];
-    //   const SAMPLE = [
-    //     ["FERT", "Bitmiş Motor Parçası", "ADET", "O", "2104", "2000", "8004"],
-    //     ["FERT", "Tamamlanmış Pompa Ünitesi", "ADET", "O", "2110", "2000", "8010"],
-    //     ["HALB", "Yarı Mamul Çelik Boru", "MT", "M", "2101", "2000", "8001"],
-    //     ["HALB", "Döküm Parça", "KG", "M", "2109", "2000", "8009"],
-    //     ["HAWA", "Vida Seti", "KG", "K", "2103", "2000", "8003"],
-    //     ["HAWA", "Plastik Kasa", "ADET", "L", "2107", "2000", "8007"],
-    //     ["ROH", "Alüminyum Levha", "KG", "M", "2105", "2000", "8005"],
-    //     ["VERP", "Ahşap Palet", "ADET", "L", "2102", "2000", "8002"],
-    //     ["VERP", "Karton Ambalaj Kutusu", "ADET", "L", "2108", "2000", "8008"],
-    //     ["ZRAW", "Kimyasal Solvent", "LT", "C", "2106", "2000", "8006"]
-    // ].map((aRow) => toRecord(aRow, COLUMNS.map((_, i) => i)));
+
+    // Durum -> görünüm eşlemesi
+    const STATUS = {
+        success: { state: "Success", highlight: "Success", icon: "sap-icon://accept", textKey: "success" },
+        failed: { state: "Error", highlight: "Error", icon: "sap-icon://decline", textKey: "failed" },
+        incomplete: { state: "Warning", highlight: "Warning", icon: "sap-icon://alert", textKey: "incomplete" }
+    };
+
     /** Satır dizisini sütun indekslerine göre model nesnesine çevirir. */
     function toRecord(aRow, aIdx) {
         const oRec = {};
@@ -53,14 +51,104 @@ sap.ui.define([
     return Controller.extend("com.alihaydarsayar.zmatcreate.controller.Main", {
 
         onInit() {
-            this.getView().setModel(new JSONModel({ fileName: "", count: "", rows: [] }), "view");
+            this._oModel = new JSONModel({
+                fileName: "",
+                count: "",
+                hasRows: false,
+                rows: [],
+                message: { visible: false, type: "Information", text: "" },
+                filter: "all",
+                summary: { successCount: 0, errorCount: 0, incompleteCount: 0, success: "", error: "", incomplete: "" }
+            });
+            this.getView().setModel(this._oModel, "view");
         },
 
         _t(sKey, aArgs) {
             return this.getOwnerComponent().getModel("i18n").getResourceBundle().getText(sKey, aArgs);
         },
 
+        /** Boş bırakılmış zorunlu alanların (çevrilmiş) başlıklarını döndürür. */
+        _missingFields(oRow) {
+            return REQUIRED.filter((k) => !oRow[k]).map((k) => this._t(COLUMNS.find((c) => c.key === k).i18n));
+        },
+
+        /** Sayfanın üstündeki mesaj şeridini gösterir (type: Success|Warning|Error|Information). */
+        _showMessage(sType, sText) {
+            this._oModel.setProperty("/message", { visible: true, type: sType, text: sText });
+        },
+
+        _hideMessage() {
+            this._oModel.setProperty("/message/visible", false);
+        },
+
+        /** Satırın durum alanlarını tek seferde ayarlar. */
+        _setStatus(oRow, sStatus, sMessage) {
+            const oS = STATUS[sStatus];
+            Object.assign(oRow, {
+                StatusCode: this._t(oS.textKey),
+                StatusMessage: sMessage,
+                State: oS.state,
+                Highlight: oS.highlight,
+                Icon: oS.icon
+            });
+        },
+
+        /** Üst bardaki başarılı/başarısız sayaçlarını günceller. */
+        _updateSummary() {
+            const aRows = this._oModel.getProperty("/rows");
+            const iOk = aRows.filter((r) => r.Highlight === "Success").length;
+            const iErr = aRows.filter((r) => r.Highlight === "Error").length;
+            const iWarn = aRows.filter((r) => r.Highlight === "Warning").length;
+            this._oModel.setProperty("/summary", {
+                successCount: iOk,
+                errorCount: iErr,
+                incompleteCount: iWarn,
+                success: this._t("summarySuccess", [iOk]),
+                error: this._t("summaryError", [iErr]),
+                incomplete: this._t("summaryIncomplete", [iWarn])
+            });
+        },
+
+        /* ---------------- Tablo filtre / arama ---------------- */
+
+        onFilterChange() {
+            this._applyFilters();
+        },
+
+        onSearch(oEvent) {
+            this._sQuery = (oEvent.getParameter("newValue") || "").trim();
+            this._applyFilters();
+        },
+
+        /** Durum filtresi ve arama metnini birlikte uygular. */
+        _applyFilters() {
+            const aFilters = [];
+            const sStatus = this._oModel.getProperty("/filter");
+            if (sStatus && sStatus !== "all") {
+                aFilters.push(new Filter("Highlight", FilterOperator.EQ, sStatus));
+            }
+            if (this._sQuery) {
+                aFilters.push(new Filter({
+                    filters: ["Mtart", "Maktx", "Plant", "Storage", "StatusMessage"]
+                        .map((k) => new Filter(k, FilterOperator.Contains, this._sQuery)),
+                    and: false
+                }));
+            }
+            this.byId("table").getBinding("items").filter(aFilters);
+        },
+
+        /** Yalnızca hatalı satırları gösterip hepsini seçer; düzeltip tekrar denemek için. */
+        onSelectFailed() {
+            this._oModel.setProperty("/filter", "Error");
+            this._applyFilters();
+            this.byId("table").selectAll();
+        },
+
         /* ---------------- Excel yükleme ---------------- */
+
+        onTypeMismatch() {
+            this._showMessage("Error", this._t("msgBadFileType"));
+        },
 
         onFileChange(oEvent) {
             const oFile = oEvent.getParameter("files") && oEvent.getParameter("files")[0];
@@ -69,7 +157,7 @@ sap.ui.define([
             }
             const oReader = new FileReader();
             oReader.onload = (e) => this._applyFile(oFile.name, e.target.result);
-            oReader.onerror = () => MessageBox.error(this._t("msgBadFile"));
+            oReader.onerror = () => this._showMessage("Error", this._t("msgBadFile"));
             oReader.readAsArrayBuffer(oFile);
         },
 
@@ -86,23 +174,41 @@ sap.ui.define([
             // Başlık adına göre eşle; bulunamazsa sütun sırasına düş
             const aHead = (aAoa[0] || []).map(normalize);
             const aIdx = COLUMNS.map((c, i) => {
-                const n = aHead.indexOf(normalize(c.header));
+                const n = aHead.indexOf(normalize(this._t(c.i18n)));
                 return n >= 0 ? n : i;
             });
-            const aRows = aAoa.slice(1).map((aRow) => Object.assign(toRecord(aRow, aIdx), {
-                StatusCode: "", StatusMessage: "", State: "None", Icon: ""
-            }));
+            const aRows = aAoa.slice(1).map((aRow, i) => {
+                const oRow = Object.assign(toRecord(aRow, aIdx), {
+                    No: i + 1, StatusCode: "", StatusMessage: "", State: "None", Highlight: "None", Icon: ""
+                });
+                const aMissing = this._missingFields(oRow);
+                if (aMissing.length) {
+                    this._setStatus(oRow, "incomplete", this._t("msgMissing", [aMissing.join(", ")]));
+                }
+                return oRow;
+            });
 
             if (!aRows.length) {
-                MessageBox.warning(this._t("msgEmptyFile"));
+                this._showMessage("Warning", this._t("msgEmptyFile"));
                 return;
             }
-            const oModel = this.getView().getModel("view");
-            oModel.setProperty("/fileName", sName);
-            oModel.setProperty("/rows", aRows);
-            oModel.setProperty("/count", this._t("rowCount", [aRows.length]));
+            const iIncomplete = aRows.filter((r) => r.Highlight === "Warning").length;
+
+            this._sQuery = "";
+            this._oModel.setProperty("/filter", "all");
+            this._applyFilters();
+            this._oModel.setProperty("/fileName", sName);
+            this._oModel.setProperty("/rows", aRows);
+            this._oModel.setProperty("/hasRows", true);
+            this._oModel.setProperty("/count", this._t("rowCount", [aRows.length]));
+            this._updateSummary();
             this.byId("table").removeSelections(true);
-            MessageToast.show(this._t("msgLoaded", [aRows.length]));
+
+            if (iIncomplete) {
+                this._showMessage("Warning", this._t("msgLoadedWarn", [aRows.length, iIncomplete]));
+            } else {
+                this._showMessage("Success", this._t("msgLoadedOk", [aRows.length]));
+            }
         },
 
         /* ---------------- Excel indirme (sap.ui.export.Spreadsheet) ---------------- */
@@ -113,7 +219,7 @@ sap.ui.define([
         },
 
         onDownloadTable() {
-            const aRows = this.getView().getModel("view").getProperty("/rows");
+            const aRows = this._oModel.getProperty("/rows");
             if (!aRows.length) {
                 MessageToast.show(this._t("msgNoData"));
                 return;
@@ -122,18 +228,18 @@ sap.ui.define([
         },
 
         _export(aData, bWithStatus, sFileName) {
-            const aCols = COLUMNS.map((c) => ({ label: c.header, property: c.key, type: "String" }));
+            const aCols = COLUMNS.map((c) => ({ label: this._t(c.i18n), property: c.key, type: "String" }));
             if (bWithStatus) {
                 aCols.push({ label: this._t("statusCode"), property: "StatusCode", type: "String" });
                 aCols.push({ label: this._t("statusMessage"), property: "StatusMessage", type: "String" });
             }
             const oSheet = new Spreadsheet({
-                workbook: { columns: aCols, context: { sheetName: "Malzeme" } },
+                workbook: { columns: aCols, context: { sheetName: this._t("sheetName") } },
                 dataSource: aData,
                 fileName: sFileName + ".xlsx"
             });
             oSheet.build()
-                .catch(() => MessageBox.error(this._t("msgLibFail")))
+                .catch(() => this._showMessage("Error", this._t("msgLibFail")))
                 .finally(() => oSheet.destroy());
         },
 
@@ -142,35 +248,74 @@ sap.ui.define([
         onCreate() {
             const aCtx = this.byId("table").getSelectedContexts();
             if (!aCtx.length) {
-                MessageBox.warning(this._t("msgNoSelection"));
+                this._showMessage("Warning", this._t("msgNoSelection"));
                 return;
             }
+            // Daha önce başarıyla yaratılan satırlar tekrar gönderilmez
+            const aTodo = aCtx.filter((oCtx) => oCtx.getObject().Highlight !== "Success");
+            const iSkipped = aCtx.length - aTodo.length;
+            if (!aTodo.length) {
+                this._showMessage("Information", this._t("msgNothingToDo"));
+                return;
+            }
+            MessageBox.confirm(this._t("confirmText", [aTodo.length]), {
+                title: this._t("confirmTitle"),
+                actions: [MessageBox.Action.OK, MessageBox.Action.CANCEL],
+                emphasizedAction: MessageBox.Action.OK,
+                onClose: (sAction) => {
+                    if (sAction === MessageBox.Action.OK) {
+                        this._createRows(aTodo, iSkipped);
+                    }
+                }
+            });
+        },
+
+        _createRows(aCtx, iSkipped) {
+            this._hideMessage();
             BusyIndicator.show(0);
             // Gerçek SAP çağrısı yerine kısa gecikmeli simülasyon
             setTimeout(() => {
-                const oModel = this.getView().getModel("view");
-                let ok = 0;
-                let fail = 0;
+                let iOk = 0;
+                let iFail = 0;
                 aCtx.forEach((oCtx) => {
-                    const oRes = this._mockCreate(oCtx.getObject());
-                    const sPath = oCtx.getPath();
-                    oModel.setProperty(sPath + "/StatusCode", this._t(oRes.success ? "success" : "failed"));
-                    oModel.setProperty(sPath + "/State", oRes.success ? "Success" : "Error");
-                    oModel.setProperty(sPath + "/Icon", oRes.success ? "sap-icon://accept" : "sap-icon://decline");
-                    oModel.setProperty(sPath + "/StatusMessage", oRes.message);
+                    const oRow = oCtx.getObject();
+                    const oRes = this._mockCreate(oRow);
+                    this._setStatus(oRow, oRes.success ? "success" : "failed", oRes.message);
                     if (oRes.success) {
-                        ok++;
+                        iOk++;
                     } else {
-                        fail++;
+                        iFail++;
                     }
                 });
+                this._oModel.refresh(true);
+                this._updateSummary();
+                this.byId("table").removeSelections(true);
                 BusyIndicator.hide();
-                MessageToast.show(this._t("msgDone", [ok, fail]));
+                this._showResult(iOk, iFail, iSkipped);
             }, 600);
         },
 
+        _showResult(iOk, iFail, iSkipped) {
+            let sType;
+            let sText;
+            if (!iFail) {
+                sType = "Success";
+                sText = this._t("msgDoneOk", [iOk]);
+            } else if (iOk) {
+                sType = "Warning";
+                sText = this._t("msgDonePartial", [iOk, iFail]);
+            } else {
+                sType = "Error";
+                sText = this._t("msgDoneFail", [iFail]);
+            }
+            if (iSkipped) {
+                sText += " " + this._t("msgSkipped", [iSkipped]);
+            }
+            this._showMessage(sType, sText);
+        },
+
         _mockCreate(oRow) {
-            const aMissing = REQUIRED.filter((k) => !oRow[k]).map((k) => COLUMNS.find((c) => c.key === k).header);
+            const aMissing = this._missingFields(oRow);
             if (aMissing.length) {
                 return { success: false, message: this._t("msgMissing", [aMissing.join(", ")]) };
             }
