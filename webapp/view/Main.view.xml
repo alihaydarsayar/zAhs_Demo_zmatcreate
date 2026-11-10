@@ -2,7 +2,7 @@
     xmlns:mvc="sap.ui.core.mvc"
     xmlns:u="sap.ui.unified"
     xmlns="sap.m">
-    <Page id="page" title="{i18n>title}" class="sapUiResponsivePadding--content">
+    <Page id="page" title="{i18n>title}" class="sapUiResponsivePadding--content zmcPage">
         <content>
             <MessageStrip id="messageStrip" text="{view>/message/text}" type="{view>/message/type}"
                 visible="{view>/message/visible}" showIcon="true" showCloseButton="true"
@@ -51,15 +51,15 @@
                 </headerToolbar>
                 <columns>
                     <Column width="3rem" hAlign="End"><Text text="#"/></Column>
-                    <Column width="8rem"><Text text="{i18n>colMtart}"/></Column>
-                    <Column minScreenWidth="Tablet" demandPopin="true" width="14rem"><Text text="{i18n>colMaktx}"/></Column>
-                    <Column minScreenWidth="Tablet" demandPopin="true"><Text text="{i18n>colMeins}"/></Column>
-                    <Column minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colSector}"/></Column>
-                    <Column minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colDivision}"/></Column>
-                    <Column minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colPlant}"/></Column>
-                    <Column minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colStorage}"/></Column>
-                    <Column width="10rem"><Text text="{i18n>statusCode}"/></Column>
-                    <Column width="20rem"><Text text="{i18n>statusMessage}"/></Column>
+                    <Column width="7rem"><Text text="{i18n>colMtart}"/></Column>
+                    <Column><Text text="{i18n>colMaktx}"/></Column>
+                    <Column><Text text="{i18n>colMeins}"/></Column>
+                    <Column><Text text="{i18n>colSector}"/></Column>
+                    <Column><Text text="{i18n>colDivision}"/></Column>
+                    <Column><Text text="{i18n>colPlant}"/></Column>
+                    <Column><Text text="{i18n>colStorage}"/></Column>
+                    <Column width="9rem"><Text text="{i18n>statusCode}"/></Column>
+                    <Column width="22%"><Text text="{i18n>statusMessage}"/></Column>
                 </columns>
                 <items>
                     <ColumnListItem highlight="{view>Highlight}">
@@ -82,7 +82,6 @@
         </content>
         <footer>
             <OverflowToolbar>
-                <Text text="{i18n>msgDemo}" class="sapUiTinyMarginBegin"/>
                 <ToolbarSpacer/>
                 <Button text="{i18n>createMaterial}" type="Accept" icon="sap-icon://paper-plane"
                     enabled="{view>/hasRows}" press=".onCreate"/>

@@ -6,10 +6,11 @@ sap.ui.define([
     "sap/ui/core/BusyIndicator",
     "sap/ui/export/Spreadsheet",
     "sap/base/Log",
+    "sap/base/security/encodeXML",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
     "com/alihaydarsayar/zmatcreate/model/ExcelReader"
-], (Controller, JSONModel, MessageToast, MessageBox, BusyIndicator, Spreadsheet, Log, Filter, FilterOperator, ExcelReader) => {
+], (Controller, JSONModel, MessageToast, MessageBox, BusyIndicator, Spreadsheet, Log, encodeXML, Filter, FilterOperator, ExcelReader) => {
     "use strict";
 
     // Model alanı <-> i18n anahtarı (Excel başlıkları kullanıcının diline göre gelir)
@@ -72,9 +73,20 @@ sap.ui.define([
             return REQUIRED.filter((k) => !oRow[k]).map((k) => this._t(COLUMNS.find((c) => c.key === k).i18n));
         },
 
-        /** Sayfanın üstündeki mesaj şeridini gösterir (type: Success|Warning|Error|Information). */
-        _showMessage(sType, sText) {
+        /**
+         * Sayfanın üstündeki mesaj şeridini gösterir (type: Success|Warning|Error|Information).
+         * bPopup true ve tip Warning/Error ise aynı mesaj popup olarak da açılır;
+         * aDetails (satır listesi) popup'ta "Ayrıntılar" bölümüne yazılır.
+         */
+        _showMessage(sType, sText, bPopup, aDetails) {
             this._oModel.setProperty("/message", { visible: true, type: sType, text: sText });
+            if (bPopup && (sType === "Warning" || sType === "Error")) {
+                const oOptions = {};
+                if (aDetails && aDetails.length) {
+                    oOptions.details = "<ul>" + aDetails.map((d) => "<li>" + encodeXML(d) + "</li>").join("") + "</ul>";
+                }
+                MessageBox[sType === "Error" ? "error" : "warning"](sText, oOptions);
+            }
         },
 
         _hideMessage() {
@@ -147,7 +159,7 @@ sap.ui.define([
         /* ---------------- Excel yükleme ---------------- */
 
         onTypeMismatch() {
-            this._showMessage("Error", this._t("msgBadFileType"));
+            this._showMessage("Error", this._t("msgBadFileType"), true);
         },
 
         onFileChange(oEvent) {
@@ -157,7 +169,7 @@ sap.ui.define([
             }
             const oReader = new FileReader();
             oReader.onload = (e) => this._applyFile(oFile.name, e.target.result);
-            oReader.onerror = () => this._showMessage("Error", this._t("msgBadFile"));
+            oReader.onerror = () => this._showMessage("Error", this._t("msgBadFile"), true);
             oReader.readAsArrayBuffer(oFile);
         },
 
@@ -189,7 +201,7 @@ sap.ui.define([
             });
 
             if (!aRows.length) {
-                this._showMessage("Warning", this._t("msgEmptyFile"));
+                this._showMessage("Warning", this._t("msgEmptyFile"), true);
                 return;
             }
             const iIncomplete = aRows.filter((r) => r.Highlight === "Warning").length;
@@ -205,7 +217,8 @@ sap.ui.define([
             this.byId("table").removeSelections(true);
 
             if (iIncomplete) {
-                this._showMessage("Warning", this._t("msgLoadedWarn", [aRows.length, iIncomplete]));
+                this._showMessage("Warning", this._t("msgLoadedWarn", [aRows.length, iIncomplete]), true,
+                    aRows.filter((r) => r.Highlight === "Warning").map((r) => "#" + r.No + ": " + r.StatusMessage));
             } else {
                 this._showMessage("Success", this._t("msgLoadedOk", [aRows.length]));
             }
@@ -239,7 +252,7 @@ sap.ui.define([
                 fileName: sFileName + ".xlsx"
             });
             oSheet.build()
-                .catch(() => this._showMessage("Error", this._t("msgLibFail")))
+                .catch(() => this._showMessage("Error", this._t("msgLibFail"), true))
                 .finally(() => oSheet.destroy());
         },
 
@@ -248,7 +261,7 @@ sap.ui.define([
         onCreate() {
             const aCtx = this.byId("table").getSelectedContexts();
             if (!aCtx.length) {
-                this._showMessage("Warning", this._t("msgNoSelection"));
+                this._showMessage("Warning", this._t("msgNoSelection"), true);
                 return;
             }
             // Daha önce başarıyla yaratılan satırlar tekrar gönderilmez
@@ -277,6 +290,7 @@ sap.ui.define([
             setTimeout(() => {
                 let iOk = 0;
                 let iFail = 0;
+                const aFailed = [];
                 aCtx.forEach((oCtx) => {
                     const oRow = oCtx.getObject();
                     const oRes = this._mockCreate(oRow);
@@ -285,17 +299,18 @@ sap.ui.define([
                         iOk++;
                     } else {
                         iFail++;
+                        aFailed.push("#" + oRow.No + " " + oRow.Mtart + ": " + oRes.message);
                     }
                 });
                 this._oModel.refresh(true);
                 this._updateSummary();
                 this.byId("table").removeSelections(true);
                 BusyIndicator.hide();
-                this._showResult(iOk, iFail, iSkipped);
+                this._showResult(iOk, iFail, iSkipped, aFailed);
             }, 600);
         },
 
-        _showResult(iOk, iFail, iSkipped) {
+        _showResult(iOk, iFail, iSkipped, aFailed) {
             let sType;
             let sText;
             if (!iFail) {
@@ -311,7 +326,7 @@ sap.ui.define([
             if (iSkipped) {
                 sText += " " + this._t("msgSkipped", [iSkipped]);
             }
-            this._showMessage(sType, sText);
+            this._showMessage(sType, sText, true, aFailed);
         },
 
         _mockCreate(oRow) {

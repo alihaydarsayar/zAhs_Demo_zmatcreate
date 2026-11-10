@@ -1,1 +1,52 @@
-/* Enter your custom styles here */
+/* Buton hover efekti: hafif yükselme + parlama.
+   Gölge, köşeleri yuvarlak olan iç elemana (.sapMBtnInner) verilir; aksi halde kare görünür. */
+.zmcPage .sapMBtn {
+    transition: transform 0.15s ease;
+}
+
+.zmcPage .sapMBtn .sapMBtnInner {
+    transition: box-shadow 0.15s ease;
+}
+
+.zmcPage .sapMBtn:hover:not(.sapMBtnDisabled) {
+    transform: translateY(-1px);
+}
+
+.zmcPage .sapMBtn:hover:not(.sapMBtnDisabled) .sapMBtnInner {
+    box-shadow: 0 3px 10px rgba(10, 110, 209, 0.35);
+}
+
+.zmcPage .sapMBtnAccept:hover:not(.sapMBtnDisabled) .sapMBtnInner {
+    box-shadow: 0 3px 10px rgba(48, 145, 77, 0.4);
+}
+
+.zmcPage .sapMBtnReject:hover:not(.sapMBtnDisabled) .sapMBtnInner,
+.zmcPage .sapMBtnNegative:hover:not(.sapMBtnDisabled) .sapMBtnInner {
+    box-shadow: 0 3px 10px rgba(187, 0, 0, 0.35);
+}
+
+.zmcPage .sapMBtn:active:not(.sapMBtnDisabled) {
+    transform: translateY(0);
+}
+
+.zmcPage .sapMBtn:active:not(.sapMBtnDisabled) .sapMBtnInner {
+    box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .zmcPage .sapMBtn,
+    .zmcPage .sapMBtn .sapMBtnInner {
+        transition: none;
+    }
+    .zmcPage .sapMBtn:hover:not(.sapMBtnDisabled) {
+        transform: none;
+    }
+}
+
+/* Sütun başlıkları kelime ortasından bölünmesin */
+.zmcPage .sapMListTblHeaderCell,
+.zmcPage .sapMListTblHeaderCell * {
+    word-break: normal;
+    overflow-wrap: normal;
+    hyphens: none;
+}
