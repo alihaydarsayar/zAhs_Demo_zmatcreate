@@ -66,6 +66,8 @@ sap.ui.define([
                 fileName: "",
                 count: "",
                 hasRows: false,
+                // /excel uygulaması manifest'te bunu true yapar (Excel önizleme ve Excel Görünümü)
+                excelEnabled: !!this.getOwnerComponent().getManifestEntry("/sap.ui5/config/excelEnabled"),
                 rows: [],
                 message: { visible: false, type: "Information", text: "" },
                 filter: "all",
@@ -183,10 +185,26 @@ sap.ui.define([
             if (!oFile) {
                 return;
             }
+            const bPreview = this._oModel.getProperty("/excelEnabled");
             const oReader = new FileReader();
-            oReader.onload = (e) => this._openPreview(oFile.name, e.target.result);
+            oReader.onload = (e) => bPreview
+                ? this._openPreview(oFile.name, e.target.result)
+                : this._loadDirect(oFile.name, e.target.result);
             oReader.onerror = () => this._showMessage("Error", this._t("msgBadFile"), true);
             oReader.readAsArrayBuffer(oFile);
+        },
+
+        /** Önizleme olmadan: ilk sayfayı doğrudan tabloya aktarır. */
+        _loadDirect(sName, oBuffer) {
+            let aRows;
+            try {
+                aRows = withoutBlankRows(ExcelReader.read(oBuffer));
+            } catch (oError) {
+                Log.error("Excel okunamadı", oError && oError.stack);
+                MessageBox.error(this._t("msgBadFile"), { details: String(oError && oError.message) });
+                return;
+            }
+            this._applyRows(sName, aRows);
         },
 
         /* ---------------- Excel önizleme / düzenleme (Jspreadsheet) ---------------- */

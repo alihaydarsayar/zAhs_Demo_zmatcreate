@@ -11,6 +11,10 @@
 
 ### 👉 [Canlı demoyu aç](https://alihaydarsayar.github.io/zAhs_Demo_zmatcreate/)
 
+### 👉 [Excel önizleme/düzenleme sürümünü aç](https://alihaydarsayar.github.io/zAhs_Demo_zmatcreate/excel/)
+
+Aynı uygulamanın ikinci girişi: linkin sonuna `excel/` eklenir. Bu sürümde Excel seçince önizleme ve düzenleme ızgarası açılır, tabloda **Excel Görünümü** butonu görünür. Normal linkte bu özellikler yoktur.
+
 </div>
 
 ---
